@@ -7,9 +7,24 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
+    let currentState = 'brand'; // Поточний стан фільтрації
+    let selectedBrand = null;
+    let selectedModel = null;
+
     fetchButton.addEventListener('click', function () {
-        console.log('Fetch button clicked!');
-        fetch('js/sample.json')
+        if (currentState === 'brand') {
+            fetchData('./js/image_sources.json'); // Завантаження нового файлу
+        } else if (currentState === 'model') {
+            showBrands();
+        } else if (currentState === 'year') {
+            showModels(selectedBrand);
+        } else if (currentState === 'images') {
+            showYears(selectedBrand, selectedModel);
+        }
+    });
+
+    function fetchData(filePath) {
+        fetch(filePath)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -18,91 +33,106 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(data => {
                 jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
-
-                // Групування за марками, моделями та роками
-                const groupedData = {};
-                for (const [key, url] of Object.entries(data)) {
-                    const parts = key.split('/');
-                    const brand = parts[0]; // Марка машини
-                    const model = parts[1]; // Модель машини
-                    const year = parts[2]; // Рік машини
-
-                    if (!groupedData[brand]) {
-                        groupedData[brand] = {};
-                    }
-                    if (!groupedData[brand][model]) {
-                        groupedData[brand][model] = {};
-                    }
-                    if (!groupedData[brand][model][year]) {
-                        groupedData[brand][model][year] = [];
-                    }
-                    groupedData[brand][model][year].push(url);
-                }
-
-                // Створення кнопок для марок
-                for (const brand of Object.keys(groupedData)) {
-                    const brandButton = document.createElement('button');
-                    brandButton.textContent = brand;
-                    brandButton.style.margin = '10px';
-                    brandButton.style.padding = '10px';
-                    brandButton.style.cursor = 'pointer';
-
-                    brandButton.addEventListener('click', function () {
-                        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
-                        for (const model of Object.keys(groupedData[brand])) {
-                            const modelButton = document.createElement('button');
-                            modelButton.textContent = model;
-                            modelButton.style.margin = '10px';
-                            modelButton.style.padding = '10px';
-                            modelButton.style.cursor = 'pointer';
-
-                            modelButton.addEventListener('click', function () {
-                                jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
-                                for (const year of Object.keys(groupedData[brand][model])) {
-                                    const yearButton = document.createElement('button');
-                                    yearButton.textContent = year;
-                                    yearButton.style.margin = '10px';
-                                    yearButton.style.padding = '10px';
-                                    yearButton.style.cursor = 'pointer';
-
-                                    yearButton.addEventListener('click', function () {
-                                        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
-                                        const cars = groupedData[brand][model][year];
-
-                                        cars.forEach(url => {
-                                            const carContainer = document.createElement('div');
-                                            carContainer.style.textAlign = 'center';
-                                            carContainer.style.marginBottom = '20px';
-
-                                            const img = document.createElement('img');
-                                            img.src = url;
-                                            img.alt = `${brand} ${model} ${year}`;
-                                            img.style.width = '150px';
-                                            img.style.height = '150px';
-                                            img.style.objectFit = 'cover';
-                                            img.style.border = '2px solid #ff99aa';
-                                            img.style.borderRadius = '5px';
-                                            img.style.margin = '10px';
-
-                                            carContainer.appendChild(img);
-                                            jsonOutput.appendChild(carContainer);
-                                        });
-                                    });
-
-                                    jsonOutput.appendChild(yearButton);
-                                }
-                            });
-
-                            jsonOutput.appendChild(modelButton);
-                        }
-                    });
-
-                    jsonOutput.appendChild(brandButton);
-                }
+                const groupedData = groupData(data);
+                showBrands(groupedData);
             })
             .catch(error => {
                 console.error('Error fetching JSON:', error);
-                jsonOutput.textContent = `Error: ${error.message}`;
+                jsonOutput.textContent = `Error fetching JSON: ${error.message}`;
             });
-    });
+    }
+
+    function groupData(data) {
+        const groupedData = {};
+        for (const [key, url] of Object.entries(data)) {
+            const parts = key.split('/');
+            const brand = parts[0];
+            const model = parts[1];
+            const year = parts[2];
+
+            if (!groupedData[brand]) {
+                groupedData[brand] = {};
+            }
+            if (!groupedData[brand][model]) {
+                groupedData[brand][model] = {};
+            }
+            if (!groupedData[brand][model][year]) {
+                groupedData[brand][model][year] = [];
+            }
+            groupedData[brand][model][year].push(url);
+        }
+        return groupedData;
+    }
+
+    function showBrands(groupedData) {
+        currentState = 'brand';
+        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
+
+        for (const brand of Object.keys(groupedData)) {
+            const brandButton = document.createElement('button');
+            brandButton.textContent = brand;
+            brandButton.className = 'filter-button';
+            brandButton.addEventListener('click', function () {
+                selectedBrand = brand;
+                showModels(groupedData[brand]);
+            });
+            jsonOutput.appendChild(brandButton);
+        }
+    }
+
+    function showModels(models) {
+        currentState = 'model';
+        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
+
+        for (const model of Object.keys(models)) {
+            const modelButton = document.createElement('button');
+            modelButton.textContent = model;
+            modelButton.className = 'filter-button';
+            modelButton.addEventListener('click', function () {
+                selectedModel = model;
+                showYears(models[model]);
+            });
+            jsonOutput.appendChild(modelButton);
+        }
+    }
+
+    function showYears(years) {
+        currentState = 'year';
+        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
+
+        for (const year of Object.keys(years)) {
+            const yearButton = document.createElement('button');
+            yearButton.textContent = year;
+            yearButton.className = 'filter-button';
+            yearButton.addEventListener('click', function () {
+                showImages(years[year]);
+            });
+            jsonOutput.appendChild(yearButton);
+        }
+    }
+
+    function showImages(images) {
+        currentState = 'images';
+        jsonOutput.innerHTML = ''; // Очищення попереднього вмісту
+
+        const carContainer = document.createElement('div');
+        carContainer.className = 'car-container';
+
+        images.forEach(url => {
+            const carItem = document.createElement('div');
+            carItem.className = 'car-item';
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Car Image';
+            img.onerror = () => {
+                img.src = 'https://via.placeholder.com/150?text=No+Image';
+            };
+
+            carItem.appendChild(img);
+            carContainer.appendChild(carItem);
+        });
+
+        jsonOutput.appendChild(carContainer);
+    }
 });
